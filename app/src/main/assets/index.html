@@ -36,8 +36,7 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:18px 0}
 <div class="card">
 <h1>Расписание занятий</h1><p class="muted small">Выбери курс и учебную группу — занятия отобразятся текстом.</p>
 <div class="grid2"><div class="field"><label for="course">Курс</label><select id="course"><option value="1">1 курс</option><option value="2">2 курс</option><option value="3">3 курс</option><option value="4">4 курс</option></select></div><div class="field"><label for="group">Группа</label><select id="group"></select></div></div>
-<div class="actions"><button id="loadBtn" class="primary">Загрузить расписание</button><button id="sourceBtn">Оригинал ↗</button></div>
-<div id="loadStatus" class="status">Готово к загрузке. Выбери группу.</div>
+<div id="loadStatus" class="status ok">Расписание хранится в приложении. Интернет для просмотра не нужен.</div>
 </div>
 <div class="card"><div id="scheduleOutput"><div class="empty">Выбери группу, чтобы увидеть расписание.</div></div></div>
 </section>
@@ -57,19 +56,19 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:18px 0}
 <div class="field"><label for="changeLesson">Пара / время</label><input id="changeLesson" placeholder="Например: 2 пара, 10:05–11:45"></div>
 <div class="field"><label for="changeText">Описание замены</label><textarea id="changeText" rows="3" placeholder="Новый предмет, преподаватель, кабинет или отмена"></textarea></div>
 <button id="publishBtn" class="primary" style="width:100%;margin-top:10px">Опубликовать замену</button>
-<div id="adminChanges"></div>
+<details><summary>Добавить занятие в офлайн-расписание</summary><label>Группа</label><select id="scheduleGroup"></select><label>День недели</label><select id="scheduleDay"><option value="1">Понедельник</option><option value="2">Вторник</option><option value="3">Среда</option><option value="4">Четверг</option><option value="5">Пятница</option><option value="6">Суббота</option></select><label>Номер пары</label><select id="scheduleNumber"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select><label>Время</label><input id="scheduleTime" placeholder="08:30–10:05"><label>Предмет</label><input id="scheduleSubject" placeholder="Название предмета"><label>Преподаватель</label><input id="scheduleTeacher"><label>Кабинет</label><input id="scheduleRoom"><button id="addScheduleBtn" class="primary">Сохранить занятие</button></details><div id="adminSchedule"></div><div id="adminChanges"></div>
 <details><summary>Изменить пароль</summary><div class="field"><label for="newPassword">Новый пароль</label><input id="newPassword" type="password"></div><button id="passwordBtn">Сохранить пароль</button></details>
 <button id="logoutBtn">Выйти</button>
 </div></div></section>
-<footer>GDSK · Расписание берётся из официального источника колледжа.<br>Дата обновления исходного расписания показывается вверху расписания.</footer>
+<footer>GDSK · Автономное расписание хранится внутри приложения и на устройстве.</footer>
 </main>
 <script>
 'use strict';
 const GROUPS={
- 1:['Д-11','Д-12','С-11','З-11','З-12','ТМ-11','ТС-11','ТС-12','ВТ-11','ОДЛ-11'],
+ 1:['Д-11','С-11','З-11','З-12','ТМ-11','ТС-11','ТС-12','ВТ-11','ОДЛ-11','ОДЛ-12'],
  2:['Д-21','С-21','З-21','З-22','СЗ-21','ТМ-21','ТС-21','ТС-22','ВТ-21','ОДЛ-21','ОДЛ-22'],
  3:['Д-31','С-31','З-31','З-32','СЗ-31','ТМ-31','ТС-31','ТС-32','ВТ-31','ОДЛ-31','ОДЛ-32'],
- 4:['Д-41','С-41','З-41','З-42','СЗ-41','ТМ-41','ТС-41','ТС-42','ВТ-41']
+ 4:['ДС-41','МС-41','СЗ-41','ПГС-41','ДМ-41','ТЭА-41','ТЭА-42','ЭВС-41']
 };
 const $=id=>document.getElementById(id);
 let currentGroup='';
@@ -77,56 +76,14 @@ let changes=readJSON('gdsk_changes',[]);
 let adminPassword=localStorage.getItem('gdsk_admin_password')||'2468';
 let adminLogged=false;
 function readJSON(key,fallback){try{const x=JSON.parse(localStorage.getItem(key));return Array.isArray(x)?x:fallback}catch(_){return fallback}}
-function groupSlug(group){return group.toLowerCase().replace(/[^a-z0-9-]/g,'')}
-function sourceURL(group){return 'https://ggdst.gomel.by/old/d/raspis_'+groupSlug(group)+'.html'}
+const DAYS=['','Понедельник','Вторник','Среда','Четверг','Пятница','Суббота'];
+let schedule={};try{schedule=JSON.parse(localStorage.getItem('gdsk_schedule')||'{}')}catch(e){}
+function saveSchedule(){localStorage.setItem('gdsk_schedule',JSON.stringify(schedule))}
+function populateGroups(){const list=GROUPS[$('course').value]||[];$('group').innerHTML=list.map(g=>'<option>'+g+'</option>').join('');$('changeGroup').innerHTML=Object.values(GROUPS).flat().map(g=>'<option>'+g+'</option>').join('');$('scheduleGroup').innerHTML=Object.values(GROUPS).flat().map(g=>'<option>'+g+'</option>').join('');currentGroup=$('group').value||''}
 function setStatus(message,type=''){const el=$('loadStatus');el.className='status '+type;el.textContent=message}
-function populateGroups(){
- const course=$('course').value, list=GROUPS[course]||[];
- $('group').innerHTML=list.map(g=>`<option value="${g}">${g}</option>`).join('');
- $('changeGroup').innerHTML=Object.values(GROUPS).flat().map(g=>`<option value="${g}">${g}</option>`).join('');
- currentGroup=$('group').value||'';
-}
 function safeText(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
-function parseTextToDays(text){
- const lines=text.split(/\r?\n/).map(x=>x.replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim()).filter(Boolean);
- const clean=lines.filter(x=>!/^Группа\s/i.test(x)&&!/^Время урока/i.test(x)&&!/^Обновление/i.test(x)&&!/^https?:/i.test(x));
- return clean;
-}
-function renderPlainText(text,group){
- const lines=parseTextToDays(text);
- if(!lines.length)return '<div class="empty">Не удалось прочитать расписание с сайта. Открой оригинал по ссылке выше.</div>';
- // Keep the source table's textual content and line order intact instead of guessing column alignment.
- return `<div class="status"><b>${safeText(group)}</b> · Текстовое представление официальной таблицы. Проверь оригинал, если нужна точная привязка отдельных ячеек к дням.</div><div style="padding-top:8px">${lines.map(line=>`<div class="lesson" style="grid-template-columns:1fr"><div><b>${safeText(line)}</b></div></div>`).join('')}</div>`;
-}
-async function loadSchedule(){
- const group=$('group').value;if(!group)return;
- currentGroup=group;$('sourceBtn').onclick=()=>window.open(sourceURL(group),'_blank','noopener');
- $('scheduleOutput').innerHTML='<div class="empty">Загружаю расписание…</div>';
- setStatus('Загружаю официальную таблицу для '+group+'…');
- // AllOrigins is used only as a CORS bridge so a local HTML file can read the college's public page.
- const target=sourceURL(group);
- const bridges=[
-  'https://api.allorigins.win/raw?url='+encodeURIComponent(target),
-  'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(target)
- ];
- let lastError='';
- for(const bridge of bridges){
-  try{
-   const response=await fetch(bridge,{cache:'no-store'});
-   if(!response.ok)throw new Error('HTTP '+response.status);
-   const body=await response.text();
-   if(!body||body.length<100)throw new Error('Пустой ответ');
-   const doc=new DOMParser().parseFromString(body,'text/html');
-   const text=(doc.body?.innerText||doc.body?.textContent||'').trim();
-   if(!text)throw new Error('Не удалось извлечь текст');
-   $('scheduleOutput').innerHTML=renderPlainText(text,group);
-   setStatus('Расписание '+group+' получено с сайта колледжа.','ok');
-   return;
-  }catch(error){lastError=error.message||String(error)}
- }
- $('scheduleOutput').innerHTML=`<div class="empty">Не удалось автоматически загрузить расписание (${safeText(lastError)}).<br>Открой официальную страницу группы: <p><a href="${target}" target="_blank" rel="noopener">${safeText(group)} — расписание ↗</a></p>Если ссылка открылась, значит временно недоступен текстовый прокси.</div>`;
- setStatus('Не получилось получить текст. Можно открыть оригинал на сайте колледжа.','error');
-}
+function loadSchedule(){const g=$('group').value;if(!g)return;currentGroup=g;const rows=(schedule[g]||[]).slice().sort((x,y)=>x.day-y.day||x.number-y.number);let out='';for(let d=1;d<=6;d++){const day=rows.filter(x=>Number(x.day)===d);if(!day.length)continue;out+='<div class="day"><div class="daytitle"><b>'+DAYS[d]+'</b></div>'+day.map(x=>'<div class="lesson"><time>'+safeText(x.time||('Пара '+x.number))+'</time><div><b>'+safeText(x.subject)+'</b><small>'+[x.teacher,x.room?'каб. '+x.room:''].filter(Boolean).map(safeText).join(' · ')+'</small></div></div>').join('')+'</div>'}$('scheduleOutput').innerHTML=out||'<div class="empty">Встроенная база расписания для группы '+safeText(g)+' пока не заполнена. Администратор может добавить занятия ниже.</div>';setStatus('Офлайн-расписание · '+g+'. Сайт колледжа не используется.','ok')}
+function renderAdminSchedule(){const all=Object.entries(schedule).flatMap(([g,arr])=>(arr||[]).map((x,i)=>({g,x,i})));$('adminSchedule').innerHTML=all.map(({g,x,i})=>'<div class="subrow"><strong>'+safeText(g)+' · '+DAYS[x.day]+' · '+safeText(x.time||('Пара '+x.number))+'</strong>'+safeText(x.subject)+'<div class="muted small">'+safeText(x.teacher||'')+' '+safeText(x.room||'')+'</div><button class="danger" data-sdel="'+safeText(g)+'" data-i="'+i+'">Удалить</button></div>').join('')||'<p class="muted small">Занятий пока нет.</p>'}
 function renderChanges(){
  const html=changes.length?changes.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(item=>`<div class="subrow"><strong>${safeText(item.group)} · ${safeText(item.date)}</strong><span class="muted small">${safeText(item.lesson||'Изменение')}</span><div>${safeText(item.text)}</div></div>`).join(''):'<div class="empty">Пока замен нет.</div>';
  $('changesOutput').innerHTML=html;
@@ -144,11 +101,10 @@ $('themeBtn').addEventListener('click',()=>{
 if(localStorage.getItem('gdsk_theme')==='dark'){$('themeBtn').click()}
 $('course').addEventListener('change',()=>{populateGroups();loadSchedule()});
 $('group').addEventListener('change',loadSchedule);
-$('loadBtn').addEventListener('click',loadSchedule);
-$('sourceBtn').addEventListener('click',()=>{if(currentGroup)window.open(sourceURL(currentGroup),'_blank','noopener')});
+
 $('adminToggle').addEventListener('click',()=>{$('adminPanel').classList.toggle('hidden');$('adminPanel').scrollIntoView({behavior:'smooth',block:'start'})});
 $('loginBtn').addEventListener('click',()=>{
- if($('adminPassword').value===adminPassword){adminLogged=true;$('loginBox').classList.add('hidden');$('adminBox').classList.remove('hidden');renderChanges()}
+ if($('adminPassword').value===adminPassword){adminLogged=true;$('loginBox').classList.add('hidden');$('adminBox').classList.remove('hidden');renderChanges();renderAdminSchedule()}
  else alert('Неверный пароль');
 });
 $('publishBtn').addEventListener('click',()=>{
@@ -164,6 +120,8 @@ $('passwordBtn').addEventListener('click',()=>{
  const next=$('newPassword').value;if(next.length<4){alert('Пароль должен содержать минимум 4 символа');return}
  adminPassword=next;localStorage.setItem('gdsk_admin_password',next);$('newPassword').value='';alert('Пароль изменён');
 });
+$('addScheduleBtn').addEventListener('click',()=>{const g=$('scheduleGroup').value,s=$('scheduleSubject').value.trim();if(!s){alert('Укажи предмет');return}if(!schedule[g])schedule[g]=[];schedule[g].push({day:+$('scheduleDay').value,number:+$('scheduleNumber').value,time:$('scheduleTime').value.trim(),subject:s,teacher:$('scheduleTeacher').value.trim(),room:$('scheduleRoom').value.trim()});saveSchedule();renderAdminSchedule();if($('group').value===g)loadSchedule();$('scheduleSubject').value='';alert('Занятие сохранено на устройстве')});
+$('adminSchedule').addEventListener('click',e=>{const b=e.target.closest('[data-sdel]');if(!b)return;const g=b.dataset.sdel;schedule[g].splice(+b.dataset.i,1);if(!schedule[g].length)delete schedule[g];saveSchedule();renderAdminSchedule();loadSchedule()});
 $('logoutBtn').addEventListener('click',()=>{adminLogged=false;$('adminBox').classList.add('hidden');$('loginBox').classList.remove('hidden');$('adminPassword').value=''});
 $('changeDate').value=new Date().toISOString().slice(0,10);
 populateGroups();renderChanges();loadSchedule();
