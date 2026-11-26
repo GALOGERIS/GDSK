@@ -38,7 +38,7 @@
 'use strict';
 const $=id=>document.getElementById(id), DAYS=['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
 const GROUPS=['С-11','С-21','С-31','Д-11','Д-21','Д-31','З-11','З-21','З-31','ТМ-11','ТМ-21','ТМ-31','ТС-11','ТС-21','ТС-31','ВТ-11','ВТ-21','ВТ-31','ОДЛ-11','ОДЛ-21','ОДЛ-31','ПГС-41','ДС-41'];
-let events=load('gdsk_events',[]);
+let events=load('gdsk_events',[]);\nif(!events.length){events=[{id:'sample-s31-dm',group:'С-31',audience:'group',type:'lesson',day:new Date().getDay(),start:'08:15',end:'09:45',title:'ДМ',teacher:'Руцкая Л.В.',room:'Уточнить у администрации',details:'Демонстрационное занятие. День недели и кабинет необходимо подтвердить.'}];localStorage.setItem('gdsk_events',JSON.stringify(events));}
 let password=localStorage.getItem('gdsk_admin_password')||'2468',logged=false,activeTab='student';
 function load(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}}
 function persist(){localStorage.setItem('gdsk_events',JSON.stringify(events))}
