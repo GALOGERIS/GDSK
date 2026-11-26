@@ -9,7 +9,7 @@ public class AlarmReceiver extends BroadcastReceiver {
   NotificationManager nm=(NotificationManager)context.getSystemService(Context.NOTIFICATION_SERVICE);
   if(Build.VERSION.SDK_INT>=26)nm.createNotificationChannel(new NotificationChannel(channel,"Расписание и звонки",NotificationManager.IMPORTANCE_HIGH));
   Notification.Builder b=Build.VERSION.SDK_INT>=26?new Notification.Builder(context,channel):new Notification.Builder(context);
-  b.setSmallIcon(context.getApplicationInfo().icon).setContentTitle(title==null?"GDSK":title).setContentText(body==null?"":body).setAutoCancel(true);
+  b.setSmallIcon(android.R.drawable.ic_dialog_info).setContentTitle(title==null?"GDSK":title).setContentText(body==null?"":body).setAutoCancel(true);
   nm.notify((int)(System.currentTimeMillis()%Integer.MAX_VALUE),b.build());
  }
 }
